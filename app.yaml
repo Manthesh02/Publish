@@ -31,8 +31,9 @@ metadata:
 spec:
   selector:
     app: java-app
-  type: LoadBalancer
+  type: NodePort
   ports:
-  - name: http  # Name should match containerPort
-    targetPort: 9001  # Port exposed by the Pod
-    port: 8080  # Port exposed by the Service
+  - name: http
+    targetPort: 9001
+    port: 8080
+    nodePort: 31000  # Specify the desired NodePort here
