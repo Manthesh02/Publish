@@ -25,7 +25,7 @@ pipeline {
         stage('Checkout') {
             steps {
                 // Checkout the main branch of the GitHub repository using SSH
-                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: 'd5a98037-9aae-4de5-a2a9-6e102c36aab7', url: 'git@github.com:Manthesh02/Publish.git']])
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: 'Github', url: 'git@github.com:Manthesh02/Publish.git']])
             }
         }
 
@@ -65,15 +65,11 @@ pipeline {
             }
         }
 
-        // Added 'Deploy to Minikube' stage
-        stage('Deploy to Minikube') {
+        stage('Deploy to k8s') {
             steps {
                 script {
-                    // Load kubeconfig as a file credential
-                    withCredentials([file(credentialsId: 'Kubeconfig', variable: 'config')]) {
-                        // Ensure that the 'app.yaml' file is present in your repository or Jenkins workspace 
-                        sh 'kubectl --kubeconfig=$config apply -f app.yaml'
-                    }
+                    // Use the kubernetesDeploy step to deploy to Kubernetes
+                    kubernetesDeploy configs: 'app.yaml', kubeconfigId: 'kubeconfig'
                 }
             }
         }
