@@ -9,6 +9,7 @@ pipeline {
         GIT_USER_EMAIL = 'vmanthesh20@gmail.com'
         GIT_USER = 'Manthesh02'
         DOCKERHUB_CREDENTIALS = 'dockerhub'
+        NAMESPACE = 'test'
     }
 
     tools {
@@ -42,20 +43,50 @@ pipeline {
             }
         }
 
-        stage('Build Node JS Docker Image') {
+        stage('Build Docker Image') {
             steps {
                 script {
-                    sh 'docker build -t manthesh/java-app-1.0 .'
+                    sh "docker build -t manthesh/java-app:${params.VERSION} ."
                 }
             }
         }
 
-        stage('Deploy Docker Image to DockerHub') {
+        stage('Push Docker Image to DockerHub') {
             steps {
                 script {
                     withCredentials([string(credentialsId: env.DOCKERHUB_CREDENTIALS, variable: 'DOCKERHUB_PASSWORD')]) {
                         sh "docker login -u manthesh -p '${DOCKERHUB_PASSWORD}'"
-                        sh 'docker push manthesh/java-app-1.0'
+                        sh "docker push manthesh/java-app:${params.VERSION}"
+                    }
+                }
+            }
+        }
+
+        stage('Tag and Deploy New Images for Deployments') {
+            steps {
+                script {
+                    def newVersion = params.VERSION
+
+                    // Retrieve current images for Deployments
+                    def deploymentNames = sh(script: "kubectl get deployments -n ${env.NAMESPACE} -o jsonpath='{.items[*].metadata.name}'", returnStdout: true).trim().split('\n')
+                    deploymentNames.each { deploymentName ->
+                        // Retrieve current image
+                        def currentImage = sh(script: "kubectl get deployment ${deploymentName} -n ${env.NAMESPACE} -o jsonpath='{.spec.template.spec.containers[0].image}'", returnStdout: true).trim()
+                        
+                        if (currentImage) {
+                            echo "Deployment: ${deploymentName}, Current Image: ${currentImage}"
+                            
+                            // Tag and republish image with new version
+                            def newImage = "${currentImage.split(':')[0]}:${newVersion}"
+                            sh "docker tag ${currentImage} ${newImage}"
+                            sh "docker push ${newImage}"
+                            
+                            // Update Deployment to use new image
+                            sh "kubectl set image deployment/${deploymentName} ${deploymentName}=${newImage} -n ${env.NAMESPACE}"
+                            echo "Deployment ${deploymentName} updated to use new image: ${newImage}"
+                        } else {
+                            echo "Failed to retrieve current image for Deployment ${deploymentName}. Skipping..."
+                        }
                     }
                 }
             }
@@ -64,7 +95,9 @@ pipeline {
         stage('Deploy to k3s') {
             steps {
                 script {
-                    sh '/usr/local/bin/kubectl apply -f /var/lib/jenkins/workspace/publish/app.yaml --kubeconfig /etc/rancher/k3s/k3s.yaml'
+                    def deploymentYAML = readFile '/var/lib/jenkins/workspace/publish/app.yaml'
+                    deploymentYAML = deploymentYAML.replaceAll('\\$\\{VERSION\\}', params.VERSION)
+                    sh "echo '''${deploymentYAML}''' | /usr/local/bin/kubectl apply -f - --kubeconfig /etc/rancher/k3s/k3s.yaml"
                 }
             }
         }
