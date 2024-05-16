@@ -20,7 +20,9 @@ spec:
         image: "manthesh/java-app:${VERSION}"
         ports:
           - containerPort: 9001
+
 ---
+
 apiVersion: v1
 kind: Service
 metadata:
@@ -31,6 +33,6 @@ spec:
     app: java-app
   type: LoadBalancer
   ports:
-  - name: http
-    targetPort: 9001
-    port: 8080
+  - name: http  # Name should match containerPort
+    targetPort: 9001  # Port exposed by the Pod
+    port: 8080  # Port exposed by the Service
