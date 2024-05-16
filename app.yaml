@@ -1,10 +1,11 @@
-# deployment-statefulset-service.yaml
-
-apiVersion: apps/v1
+---
 kind: Deployment
+apiVersion: apps/v1
 metadata:
-  name: java-app-deployment
-  namespace: testing
+  name: java-app
+  namespace: default
+  labels:
+    app: java-app
 spec:
   replicas: 1
   selector:
@@ -17,54 +18,20 @@ spec:
     spec:
       containers:
       - name: java-app
-        image: manthesh/java-app-1.0
+        image: "manthesh/java-app-1.0"
         ports:
-        - containerPort: 9090
-
+          - containerPort: 9001
 ---
-
-apiVersion: apps/v1
-kind: StatefulSet
-metadata:
-  name: java-app-statefulset
-  namespace: testing
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: java-app
-  serviceName: java-app
-  template:
-    metadata:
-      labels:
-        app: java-app
-    spec:
-      containers:
-      - name: java-app
-        image: manthesh/java-app-1.0
-        ports:
-        - containerPort: 9090
-  volumeClaimTemplates:
-  - metadata:
-      name: data
-    spec:
-      accessModes: [ "ReadWriteOnce" ]
-      resources:
-        requests:
-          storage: 1Gi
-
----
-
 apiVersion: v1
 kind: Service
 metadata:
-  name: java-app-service
-  namespace: testing
+  name: java-app
+  namespace: default
 spec:
   selector:
     app: java-app
+  type: LoadBalancer
   ports:
-    - protocol: TCP
-      port: 80
-      targetPort: 9090
-  type: ClusterIP
+  - name: http
+    targetPort: 9001
+    port: 8080
